@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Image Processor</h1>
+
+        <div class="upload-section">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="file-input-container">
+                    <label for="imageUpload">Upload Images:</label>
+                    <input type="file" id="imageUpload" name="images" accept="image/jpeg, image/jpg" multiple>
+                </div>
+
+                <button type="submit" id="uploadBtn">Upload Images</button>
+            </form>
+
+            <button id="generateBtn" class="buttonStyle">Generate</button>
+            <button id="downloadBtn" class="buttonStyle">Download File</button>
+        </div>
+
+        <div class="images-list">
+            <h2>Images in jpeg_files folder</h2>
+            <div id="imagesList"></div>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'https://image-to-excel-server.onrender.com';
+        // Load images when the page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadImages();
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', async function () {
+            try {
+                const filename = 'voter_data.xlsx';
+                const response = await fetch(`${baseUrl}/download/${filename}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                const fileBlob = await response.blob();
+                const url = window.URL.createObjectURL(fileBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Download failed:', error);
+                alert('Failed to download the file. Please try again.');
+            }
+        });
+
+
+
+        // Handle image upload
+        document.getElementById('uploadForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const fileInput = document.getElementById('imageUpload');
+            const files = fileInput.files;
+
+            if (files.length === 0) {
+                alert('Please select at least one image to upload');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('images', files[i]);
+            }
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch(`${baseUrl}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('Images uploaded successfully');
+                    fileInput.value = ''; // Clear the file input
+                    await loadImages(); // Refresh the image list
+                } else {
+                    alert(`Upload failed: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Error uploading images. Please try again.');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Images';
+            }
+        });
+
+        // Function to load images from the server
+        async function loadImages() {
+            const imagesListElement = document.getElementById('imagesList');
+            imagesListElement.innerHTML = '<p>Loading images...</p>';
+
+            try {
+                const response = await fetch(`${baseUrl}/list-images`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch image list');
+                }
+
+                const files = await response.json();
+
+                imagesListElement.innerHTML = '';
+
+                if (files.length === 0) {
+                    imagesListElement.innerHTML = '<p>No images in the jpeg_files folder.</p>';
+                    return;
+                }
+
+                const ul = document.createElement('ul');
+                files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.textContent = file;
+                    ul.appendChild(li);
+                });
+
+                imagesListElement.appendChild(ul);
+            } catch (error) {
+                console.error('Error loading images:', error);
+                imagesListElement.innerHTML = '<p>Error loading images. Please refresh the page.</p>';
+            }
+        }
+
+        // Generate button click event
+        document.getElementById('generateBtn').addEventListener('click', async function () {
+            const button = this;
+            button.disabled = true;
+            button.textContent = "Generating...";
+
+            try {
+                // Call the server-side generation endpoint
+                const response = await fetch(`${baseUrl}/generate`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Trigger download of the generated file
+                    window.location.href = `/download/${result.filename}`;
+                } else {
+                    alert(`Generation failed: ${result.message}`);
+                }
+            } catch (error) {
+                console.error('Generation error:', error);
+                alert('Error generating Excel file. Please try again.');
+            } finally {
+                button.disabled = false;
+                button.textContent = "Generate";
+            }
+        });
+    </script>
+</body>
+</html>
