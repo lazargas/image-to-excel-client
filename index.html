@@ -158,8 +158,7 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    // Trigger download of the generated file
-                    window.location.href = `/download/${result.filename}`;
+                   
                 } else {
                     alert(`Generation failed: ${result.message}`);
                 }
